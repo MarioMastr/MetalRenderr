@@ -76,7 +76,7 @@ MetalRender is inspired by Nvidium (the amazing mod for Nvidia GPUs that makes y
 
 ## Install
 
-1. Download the latest release from [Releases](../../releases).  
+1. Download the latest release from [Modrinth](https://modrinth.com/mod/metalrender).  
 2. Put the `.jar` file in your Minecraft `mods/` folder.  
 3. Make sure you have:
    - Minecraft **1.21.8+**  
