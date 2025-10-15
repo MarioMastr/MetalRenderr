@@ -60,17 +60,23 @@ MetalRender is inspired by Nvidium (the amazing mod for Nvidia GPUs that makes y
   As long as your launcher doesn't mess with display libraries, GLFW or EGL (like Prism does), it would work. It has been verifyed to NOT work on Prism launcher. The
   Offical Mojang launcher works.
 
-- How do you name versions?
+- Why isn't MetalRender as powerful as Nvidium?
 
-  MetalRender version do not follow the typical vX.X.X format. Instead, they are named vX.X. If there is a bug fix, enchancement or it is very similar to the
-  previous, it would be named vX.X.X, with an extra version number to indicate that it is a branch from the main version.
+  Nvidium runs on Nvidia GPUs which are much much more powerful than Apple Silicon. Only since M3 chips have hardware mesh shaders been supported so we have to make
+  do. Also, Nvidia GPUs can easily get 8GB of VRAM where as M-series chips have their VRAM and RAM combined.
+
+- MetalRender is quite slow on my computer. How fast should it be?
+
+  MetalRender can be slow because of high up-time. It should get you ~300 FPS regularly as tested with M3 Macbooks. If you are experincing lower frames, this might
+  be from high up-time, low RAM or simply because your computer cannot run mesh shaders effectively (M3+ will fully support it, M1 and M2 have compute shaders which
+  are much slower but are more traditional). 
 
   
 ---
 
 ## Install
 
-1. Download the latest release from [Releases](../../releases).  
+1. Download the latest release from [Modrinth](https://modrinth.com/mod/metalrender).  
 2. Put the `.jar` file in your Minecraft `mods/` folder.  
 3. Make sure you have:
    - Minecraft **1.21.8+**  
