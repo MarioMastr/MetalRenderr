@@ -5,7 +5,6 @@ import com.metalrender.nativebridge.MetalHardwareChecker;
 import com.metalrender.render.MetalWorldRenderer;
 import com.metalrender.sodium.backend.MeshShaderBackend;
 import com.metalrender.util.MetalLogger;
-import java.util.concurrent.atomic.AtomicBoolean;
 import net.fabricmc.api.ClientModInitializer;
 
 public final class MetalRenderClient implements ClientModInitializer {

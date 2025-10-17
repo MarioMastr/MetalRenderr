@@ -7,6 +7,7 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
 
+@SuppressWarnings("deprecation")
 public final class MetalHudOverlay implements HudRenderCallback {
    private static final int COLOR = -65281;
    private static final String LABEL = "MetalRender ACTIVE";
@@ -16,7 +17,7 @@ public final class MetalHudOverlay implements HudRenderCallback {
          TextRenderer textRenderer = MinecraftClient.getInstance().textRenderer;
          int x = 10;
          int y = 10;
-         context.drawTextWithShadow(textRenderer, "MetalRender ACTIVE", x, y, -65281);
+         context.drawTextWithShadow(textRenderer, LABEL, x, y, COLOR);
       }
    }
 

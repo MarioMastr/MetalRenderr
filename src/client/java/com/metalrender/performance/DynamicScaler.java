@@ -73,7 +73,7 @@ public final class DynamicScaler {
             int newDist;
             if (ratio > 1.15D && currScale <= minScale + 1.0E-4F) {
                newDist = ratio > 2.25D ? 3 : (ratio > 1.75D ? 2 : 1);
-               int newDist = Math.max(minDistance, currDist - newDist * distanceStep);
+               newDist = Math.max(minDistance, currDist - newDist * distanceStep);
                distanceChanged = newDist != currDist;
                currDist = newDist;
             } else if (ratio < 0.75D && currScale >= maxScale - 1.0E-4F) {

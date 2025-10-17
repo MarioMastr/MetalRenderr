@@ -60,8 +60,8 @@ public class MetalWorldRenderer {
             RenderOptimizer.PerformanceStats stats = this.renderOptimizer.getFrameStats();
             int drawn = Math.max(0, stats.totalChunks - stats.frustumCulled - stats.occlusionCulled);
             PerformanceController.accumulateChunkStats(stats.totalChunks, drawn, stats.frustumCulled, stats.occlusionCulled);
-         } catch (Throwable var15) {
-            MetalLogger.error("renderFrame failed", var15);
+         } catch (Throwable t) {
+            MetalLogger.error("renderFrame failed", t);
          }
 
       }

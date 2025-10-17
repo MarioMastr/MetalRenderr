@@ -14,9 +14,9 @@
   "mixins": ["metalrender.mixins.json"],
   "depends": {
     "fabricloader": ">=0.17.1",
-    "minecraft": ">=1.21.8",
+    "minecraft": ">=1.21.10",
     "fabric": "*",
-    "sodium": ">=0.6.0",
+    "sodium": ">=0.7.2",
     "modmenu": ">=16.0.0-rc.1"
   }
 }

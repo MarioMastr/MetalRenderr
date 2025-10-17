@@ -6,12 +6,10 @@
   "client": [
     "MinecraftClientMixin",
     "SodiumRendererMixin",
-    "ChunkRenderManagerMixin",
-    "BuilderTaskOutputMixin",
+    "RenderSectionManagerMixin",
     "SodiumWorldRendererMixin",
-    "RenderSectionMixin",
-    "ScreenAccessor",
     "sodiumhook.SodiumWorldRendererMixin_CM",
-    "lwjgl.GL11CMixin"
+    "lwjgl.GL11CMixin",
+    "lwjgl.GL15Mixin"
   ]
 }

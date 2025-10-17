@@ -4,6 +4,8 @@ import com.metalrender.backend.GLIntercept;
 import com.metalrender.config.MetalRenderConfig;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+
+import org.lwjgl.system.NativeType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
@@ -12,9 +14,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Pseudo
 @Mixin(
-   targets = {"org.lwjgl.opengl.GL15C"}
+   targets = {"org.lwjgl.opengl.GL15"}
 )
-public class GL15CMixin {
+public class GL15Mixin {
    @Inject(
       method = {"glBindBuffer"},
       at = {@At("HEAD")},
@@ -28,7 +30,7 @@ public class GL15CMixin {
    }
 
    @Inject(
-      method = {"glBufferData"},
+      method = {"glBufferData(ILjava/nio/ByteBuffer;I)V"},
       at = {@At("HEAD")},
       remap = false
    )

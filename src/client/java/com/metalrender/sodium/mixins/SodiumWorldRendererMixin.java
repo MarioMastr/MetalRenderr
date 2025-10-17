@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Pseudo
 @Mixin(
-   targets = {"me.jellysquid.mods.sodium.client.render.SodiumWorldRenderer"}
+   targets = {"net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer"}
 )
 public class SodiumWorldRendererMixin {
    @Inject(
