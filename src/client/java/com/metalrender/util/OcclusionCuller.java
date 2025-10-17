@@ -1,106 +1,64 @@
 package com.metalrender.util;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
 
-public final class OcclusionCuller {
-    private final int MAX_RAY_DISTANCE = 64;
-    private final double STEP_SIZE = 0.5;
-    private final Map<BlockPos, Long> occlusionCache = new ConcurrentHashMap<>();
-    private final Map<BlockPos, Integer> chunkFrameCounter = new ConcurrentHashMap<>();
-    private long currentFrame = 0;
-    private final SpatialCullingCache spatialCache = new SpatialCullingCache();
+public class OcclusionCuller {
+   private static final int AZIMUTH_BINS = 72;
+   private static final int ELEVATION_BINS = 36;
+   private static final float MARGIN = 2.0F;
+   private final float[] depthGrid = new float[2592];
+   private double camX;
+   private double camY;
+   private double camZ;
 
-    public boolean isChunkOccluded(BlockPos chunkPos, Camera camera) {
-        currentFrame++;
-        spatialCache.advanceFrame();
+   public void beginFrame(Camera camera) {
+      for(int i = 0; i < this.depthGrid.length; ++i) {
+         this.depthGrid[i] = Float.POSITIVE_INFINITY;
+      }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null)
-            return false;
+      Vec3d pos = camera.getPos();
+      this.camX = pos.x;
+      this.camY = pos.y;
+      this.camZ = pos.z;
+   }
 
-        Vec3d cameraPos = camera.getPos();
-        Vec3d chunkCenter = new Vec3d(chunkPos.getX() + 8, chunkPos.getY() + 8, chunkPos.getZ() + 8);
+   public boolean isChunkOccluded(BlockPos chunkPos, Camera camera) {
+      double cx = (double)(chunkPos.getX() << 4) + 8.0D;
+      double cy = (double)chunkPos.getY();
+      double cz = (double)(chunkPos.getZ() << 4) + 8.0D;
+      double dx = cx - this.camX;
+      double dy = cy - this.camY;
+      double dz = cz - this.camZ;
+      double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist < 0.001D) {
+         dist = 0.001D;
+      }
 
-        double distance = cameraPos.distanceTo(chunkCenter);
-        if (distance > MAX_RAY_DISTANCE || distance < 16)
-            return false;
-        if (!spatialCache.shouldTestChunk(chunkPos, cameraPos)) {
-            SpatialCullingCache.ChunkCacheEntry cached = spatialCache.getCachedResult(chunkPos);
-            if (cached != null) {
-                return cached.occluded;
-            }
-        }
+      double az = Math.atan2(dz, dx);
+      double el = Math.asin(dy / dist);
+      int ai = (int)Math.floor((az + 3.141592653589793D) / 6.283185307179586D * 72.0D);
+      int ei = (int)Math.floor((el + 1.5707963267948966D) / 3.141592653589793D * 36.0D);
+      if (ai < 0) {
+         ai = 0;
+      } else if (ai >= 72) {
+         ai = 71;
+      }
 
-        Integer lastFrame = chunkFrameCounter.get(chunkPos);
-        int framesSinceTest = lastFrame != null ? (int) (currentFrame - lastFrame) : 999;
+      if (ei < 0) {
+         ei = 0;
+      } else if (ei >= 36) {
+         ei = 35;
+      }
 
-        int testFrequency = distance < 32 ? 3 : distance < 64 ? 5 : 8;
+      int idx = ei * 72 + ai;
+      float nearest = this.depthGrid[idx];
+      boolean occluded = nearest + 2.0F < (float)dist;
+      if (!occluded && (float)dist < nearest) {
+         this.depthGrid[idx] = (float)dist;
+      }
 
-        if (framesSinceTest < testFrequency) {
-            Long cachedResult = occlusionCache.get(chunkPos);
-            if (cachedResult != null) {
-                return cachedResult == 1L;
-            }
-        }
-
-        boolean occluded = isPathBlocked(client.world, cameraPos, chunkCenter);
-
-        occlusionCache.put(chunkPos, occluded ? 1L : 0L);
-        chunkFrameCounter.put(chunkPos, (int) currentFrame);
-        spatialCache.cacheVisibilityResult(chunkPos, !occluded, occluded, cameraPos);
-
-        if (occlusionCache.size() > 1000) {
-            occlusionCache.clear();
-            chunkFrameCounter.clear();
-        }
-
-        return occluded;
-    }
-
-    private boolean isPathBlocked(World world, Vec3d start, Vec3d end) {
-        Vec3d direction = end.subtract(start).normalize();
-        double totalDistance = start.distanceTo(end);
-        int steps = (int) (totalDistance / STEP_SIZE);
-
-        int consecutiveBlocks = 0;
-        for (int i = 1; i < steps; i++) {
-            Vec3d currentPos = start.add(direction.multiply(i * STEP_SIZE));
-            BlockPos blockPos = new BlockPos((int) currentPos.x, (int) currentPos.y, (int) currentPos.z);
-
-            if (blockPos.getY() < world.getBottomY() || blockPos.getY() >= world.getHeight())
-                continue;
-
-            BlockState state = world.getBlockState(blockPos);
-            if (!state.isAir() && state.isOpaque()) {
-                consecutiveBlocks++;
-                if (consecutiveBlocks >= 3)
-                    return true;
-            } else {
-                consecutiveBlocks = 0;
-            }
-        }
-        return false;
-    }
-
-    public boolean isBlockVisible(BlockPos pos, Camera camera) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null)
-            return true;
-
-        Vec3d cameraPos = camera.getPos();
-        Vec3d blockCenter = new Vec3d(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
-
-        double distance = cameraPos.distanceTo(blockCenter);
-        if (distance > MAX_RAY_DISTANCE || distance < 2)
-            return true;
-
-        return !isPathBlocked(client.world, cameraPos, blockCenter);
-    }
+      return occluded;
+   }
 }

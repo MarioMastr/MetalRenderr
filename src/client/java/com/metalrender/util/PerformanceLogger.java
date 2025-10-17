@@ -1,75 +1,86 @@
 package com.metalrender.util;
 
+import com.metalrender.config.MetalRenderConfig;
+import net.minecraft.client.MinecraftClient;
+
 public final class PerformanceLogger {
-    private long frameCount = 0;
-    private long totalChunksProcessed = 0;
-    private long totalChunksDrawn = 0;
-    private long totalFrustumCulled = 0;
-    private long totalOcclusionCulled = 0;
-    private long frameStartTime = 0;
-    private double avgFrameTime = 0;
-    private double currentFPS = 0;
+   private long frameCount = 0L;
+   private long totalChunksProcessed = 0L;
+   private long totalChunksDrawn = 0L;
+   private long totalFrustumCulled = 0L;
+   private long totalOcclusionCulled = 0L;
+   private long frameStartTime = 0L;
+   private long lastFrameStartTime = 0L;
+   private double lastFrameTime = 0.0D;
+   private double avgFrameTime = 0.0D;
+   private double currentFPS = 0.0D;
+   private long lastLogTime = System.currentTimeMillis();
+   private static final long LOG_INTERVAL = 1000L;
 
-    private long lastLogTime = System.currentTimeMillis();
-    private final long LOG_INTERVAL = 2000;
+   public void startFrame() {
+      this.frameStartTime = System.nanoTime();
+      if (this.lastFrameStartTime != 0L) {
+         this.lastFrameTime = (double)(this.frameStartTime - this.lastFrameStartTime) / 1000000.0D;
+      }
 
-    public void startFrame() {
-        frameStartTime = System.nanoTime();
-    }
+      this.lastFrameStartTime = this.frameStartTime;
+   }
 
-    public void endFrame(int chunksProcessed, int chunksDrawn, int frustumCulled, int occlusionCulled) {
-        long frameEndTime = System.nanoTime();
-        double frameTime = (frameEndTime - frameStartTime) / 1_000_000.0;
+   public void endFrame(int chunksProcessed, int chunksDrawn, int frustumCulled, int occlusionCulled) {
+      long frameEndTime = System.nanoTime();
+      double frameTime;
+      if (this.lastFrameTime > 0.0D) {
+         frameTime = this.lastFrameTime;
+      } else {
+         frameTime = (double)(frameEndTime - this.frameStartTime) / 1000000.0D;
+      }
 
-        frameCount++;
-        totalChunksProcessed += chunksProcessed;
-        totalChunksDrawn += chunksDrawn;
-        totalFrustumCulled += frustumCulled;
-        totalOcclusionCulled += occlusionCulled;
+      ++this.frameCount;
+      this.totalChunksProcessed += (long)chunksProcessed;
+      this.totalChunksDrawn += (long)chunksDrawn;
+      this.totalFrustumCulled += (long)frustumCulled;
+      this.totalOcclusionCulled += (long)occlusionCulled;
+      this.avgFrameTime = this.avgFrameTime * 0.95D + frameTime * 0.05D;
+      this.currentFPS = 1000.0D / Math.max(this.avgFrameTime, 0.1D);
+      long currentTime = System.currentTimeMillis();
+      if (currentTime - this.lastLogTime >= 1000L) {
+         this.logPerformanceStats();
+         this.lastLogTime = currentTime;
+      }
 
-        avgFrameTime = avgFrameTime * 0.95 + frameTime * 0.05;
-        currentFPS = 1000.0 / Math.max(avgFrameTime, 0.1);
+   }
 
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastLogTime >= LOG_INTERVAL) {
-            logPerformanceStats();
-            lastLogTime = currentTime;
-        }
-    }
+   private void logPerformanceStats() {
+      double cullingEfficiency = this.totalChunksProcessed > 0L ? (double)(this.totalFrustumCulled + this.totalOcclusionCulled) / (double)this.totalChunksProcessed * 100.0D : 0.0D;
+      MetalLogger.info("[PERF] FPS: %.1f | FrameTime: %.2fms | Chunks: P:%d D:%d | Culled: F:%d O:%d (%.1f%%)", this.currentFPS, this.avgFrameTime, this.totalChunksProcessed, this.totalChunksDrawn, this.totalFrustumCulled, this.totalOcclusionCulled, cullingEfficiency);
+      MetalLogger.info("[PERF][DQ] Dynamic=%s | Target=%.1fms | Scale=%.2f | ViewDist=%d", MetalRenderConfig.dynamicQuality() ? "on" : "off", MetalRenderConfig.dqTargetFrameMs(), MetalRenderConfig.resolutionScale(), MinecraftClient.getInstance().options.getViewDistance().getValue());
+      if (this.currentFPS < 60.0D) {
+         MetalLogger.info("[PERF] Performance below 60 FPS - LOD system adjusting.");
+      }
 
-    private void logPerformanceStats() {
-        double cullingEfficiency = totalChunksProcessed > 0
-            ? (double) (totalFrustumCulled + totalOcclusionCulled) / totalChunksProcessed * 100
-            : 0;
+      this.resetCounters();
+   }
 
-        MetalLogger.info(
-            String.format("[PERF] FPS: %.1f | FrameTime: %.2fms | Chunks: P:%d D:%d | Culled: F:%d O:%d (%.1f%%)",
-                currentFPS, avgFrameTime, totalChunksProcessed, totalChunksDrawn, totalFrustumCulled,
-                totalOcclusionCulled, cullingEfficiency));
+   private void resetCounters() {
+      this.totalChunksProcessed = 0L;
+      this.totalChunksDrawn = 0L;
+      this.totalFrustumCulled = 0L;
+      this.totalOcclusionCulled = 0L;
+   }
 
-        if (currentFPS < 60) {
-            MetalLogger.info("[PERF] Performance below 60 FPS - LOD system adjusting.");
-        }
+   public double getCurrentFPS() {
+      return this.currentFPS;
+   }
 
-        resetCounters();
-    }
+   public double getAvgFrameTime() {
+      return this.avgFrameTime;
+   }
 
-    private void resetCounters() {
-        totalChunksProcessed = 0;
-        totalChunksDrawn = 0;
-        totalFrustumCulled = 0;
-        totalOcclusionCulled = 0;
-    }
+   public double getLastFrameTime() {
+      return this.lastFrameTime > 0.0D ? this.lastFrameTime : this.avgFrameTime;
+   }
 
-    public double getCurrentFPS() {
-        return currentFPS;
-    }
-
-    public double getAvgFrameTime() {
-        return avgFrameTime;
-    }
-
-    public long getFrameCount() {
-        return frameCount;
-    }
+   public long getFrameCount() {
+      return this.frameCount;
+   }
 }

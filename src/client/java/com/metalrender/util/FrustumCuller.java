@@ -1,133 +1,95 @@
 package com.metalrender.util;
 
-import net.minecraft.client.render.Camera;
-import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix4f;
 
-public final class FrustumCuller {
-    private double[] frustumPlanes = new double[24];
-    private boolean frustumValid = false;
-    private static final int SECTOR_SIZE = 4;
+public class FrustumCuller {
+   private final float[][] planes = new float[6][4];
+   private boolean valid;
 
-    public void updateFrustum(Camera camera, float fovDegrees, float aspect, float nearPlane, float farPlane) {
-        Vec3d pos = camera.getPos();
-        Vec3d forward =
-            new Vec3d(camera.getHorizontalPlane().x, camera.getHorizontalPlane().y, camera.getHorizontalPlane().z);
-        Vec3d up = new Vec3d(camera.getVerticalPlane().x, camera.getVerticalPlane().y, camera.getVerticalPlane().z);
-        Vec3d right = forward.crossProduct(up).normalize();
+   public void update(Matrix4f viewProjection) {
+      if (viewProjection == null) {
+         this.valid = false;
+      } else {
+         this.extractPlanes(viewProjection);
+         this.valid = true;
+      }
+   }
 
-        double fovRad = Math.toRadians(fovDegrees);
-        double halfHeight = Math.tan(fovRad * 0.5) * nearPlane;
-        double halfWidth = halfHeight * aspect;
+   private void extractPlanes(Matrix4f m) {
+      this.setPlane(0, m.m30() + m.m00(), m.m31() + m.m01(), m.m32() + m.m02(), m.m33() + m.m03());
+      this.setPlane(1, m.m30() - m.m00(), m.m31() - m.m01(), m.m32() - m.m02(), m.m33() - m.m03());
+      this.setPlane(2, m.m30() + m.m10(), m.m31() + m.m11(), m.m32() + m.m12(), m.m33() + m.m13());
+      this.setPlane(3, m.m30() - m.m10(), m.m31() - m.m11(), m.m32() - m.m12(), m.m33() - m.m13());
+      this.setPlane(4, m.m30() + m.m20(), m.m31() + m.m21(), m.m32() + m.m22(), m.m33() + m.m23());
+      this.setPlane(5, m.m30() - m.m20(), m.m31() - m.m21(), m.m32() - m.m22(), m.m33() - m.m23());
 
-        Vec3d nearCenter = pos.add(forward.multiply(nearPlane));
-        Vec3d farCenter = pos.add(forward.multiply(farPlane));
+      for(int i = 0; i < 6; ++i) {
+         this.normalizePlane(i);
+      }
 
-        Vec3d nearTopLeft = nearCenter.add(up.multiply(halfHeight)).subtract(right.multiply(halfWidth));
-        Vec3d nearTopRight = nearCenter.add(up.multiply(halfHeight)).add(right.multiply(halfWidth));
-        Vec3d nearBottomLeft = nearCenter.subtract(up.multiply(halfHeight)).subtract(right.multiply(halfWidth));
-        Vec3d nearBottomRight = nearCenter.subtract(up.multiply(halfHeight)).add(right.multiply(halfWidth));
+   }
 
-        Vec3d farTopLeft = farCenter.add(up.multiply(halfHeight * farPlane / nearPlane))
-                               .subtract(right.multiply(halfWidth * farPlane / nearPlane));
-        Vec3d farBottomRight = farCenter.subtract(up.multiply(halfHeight * farPlane / nearPlane))
-                                   .add(right.multiply(halfWidth * farPlane / nearPlane));
+   private void setPlane(int idx, float a, float b, float c, float d) {
+      this.planes[idx][0] = a;
+      this.planes[idx][1] = b;
+      this.planes[idx][2] = c;
+      this.planes[idx][3] = d;
+   }
 
-        extractPlane(0, nearTopLeft, nearTopRight, farTopLeft);
-        extractPlane(1, nearBottomRight, nearBottomLeft, farBottomRight);
-        extractPlane(2, nearBottomLeft, nearTopLeft, farTopLeft);
-        extractPlane(3, nearTopRight, nearBottomRight, farBottomRight);
-        extractPlane(4, nearTopLeft, nearBottomLeft, nearBottomRight);
-        extractPlane(5, farTopLeft, farBottomRight, farTopLeft);
+   private void normalizePlane(int idx) {
+      float a = this.planes[idx][0];
+      float b = this.planes[idx][1];
+      float c = this.planes[idx][2];
+      float d = this.planes[idx][3];
+      float len = (float)Math.sqrt((double)(a * a + b * b + c * c));
+      if (len > 1.0E-6F) {
+         this.planes[idx][0] = a / len;
+         this.planes[idx][1] = b / len;
+         this.planes[idx][2] = c / len;
+         this.planes[idx][3] = d / len;
+      }
 
-        frustumValid = true;
-    }
+   }
 
-    private void extractPlane(int index, Vec3d p1, Vec3d p2, Vec3d p3) {
-        Vec3d v1 = p2.subtract(p1);
-        Vec3d v2 = p3.subtract(p1);
-        Vec3d normal = v1.crossProduct(v2).normalize();
-        double d = -normal.dotProduct(p1);
-        int offset = index * 4;
-        frustumPlanes[offset] = normal.x;
-        frustumPlanes[offset + 1] = normal.y;
-        frustumPlanes[offset + 2] = normal.z;
-        frustumPlanes[offset + 3] = d;
-    }
+   public boolean isRegionVisible(int regionX, int regionZ, int minY, int maxY) {
+      if (!this.valid) {
+         return true;
+      } else {
+         float minX = (float)regionX * 16.0F;
+         float minZ = (float)regionZ * 16.0F;
+         float maxX = minX + 16.0F;
+         float maxZ = minZ + 16.0F;
+         float minYf = (float)minY;
+         float maxYf = (float)maxY;
+         return this.aabbIntersectsFrustum(minX, minYf, minZ, maxX, maxYf, maxZ);
+      }
+   }
 
-    public boolean isChunkVisible(int chunkX, int chunkZ, int minY, int maxY) {
-        if (!frustumValid)
-            return true;
+   public boolean aabbIntersectsFrustum(float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
+      for(int i = 0; i < 6; ++i) {
+         float a = this.planes[i][0];
+         float b = this.planes[i][1];
+         float c = this.planes[i][2];
+         float d = this.planes[i][3];
+         float px = a >= 0.0F ? maxX : minX;
+         float py = b >= 0.0F ? maxY : minY;
+         float pz = c >= 0.0F ? maxZ : minZ;
+         if (a * px + b * py + c * pz + d < 0.0F) {
+            return false;
+         }
+      }
 
-        return isChunkVisibleDirect(chunkX, chunkZ, minY, maxY);
-    }
+      return true;
+   }
 
-    public boolean isSectorVisible(int sectorX, int sectorZ, int minY, int maxY) {
-        if (!frustumValid)
-            return true;
+   public static enum MovementState {
+      STANDING,
+      WALKING,
+      FLYING;
 
-        int chunkMinX = sectorX * SECTOR_SIZE;
-        int chunkMaxX = chunkMinX + SECTOR_SIZE - 1;
-        int chunkMinZ = sectorZ * SECTOR_SIZE;
-        int chunkMaxZ = chunkMinZ + SECTOR_SIZE - 1;
-
-        double minX = chunkMinX * 16.0;
-        double maxX = (chunkMaxX + 1) * 16.0;
-        double minZ = chunkMinZ * 16.0;
-        double maxZ = (chunkMaxZ + 1) * 16.0;
-
-        for (int i = 0; i < 6; i++) {
-            int offset = i * 4;
-            double nx = frustumPlanes[offset];
-            double ny = frustumPlanes[offset + 1];
-            double nz = frustumPlanes[offset + 2];
-            double d = frustumPlanes[offset + 3];
-
-            double pX = nx > 0 ? maxX : minX;
-            double pY = ny > 0 ? maxY : minY;
-            double pZ = nz > 0 ? maxZ : minZ;
-
-            if (nx * pX + ny * pY + nz * pZ + d < 0) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean isChunkVisibleDirect(int chunkX, int chunkZ, int minY, int maxY) {
-        double minX = chunkX * 16.0;
-        double maxX = minX + 16.0;
-        double minZ = chunkZ * 16.0;
-        double maxZ = minZ + 16.0;
-
-        for (int i = 0; i < 6; i++) {
-            int offset = i * 4;
-            double nx = frustumPlanes[offset];
-            double ny = frustumPlanes[offset + 1];
-            double nz = frustumPlanes[offset + 2];
-            double d = frustumPlanes[offset + 3];
-
-            double pX = nx > 0 ? maxX : minX;
-            double pY = ny > 0 ? maxY : minY;
-            double pZ = nz > 0 ? maxZ : minZ;
-
-            if (nx * pX + ny * pY + nz * pZ + d < 0) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public boolean isPointVisible(double x, double y, double z) {
-        if (!frustumValid)
-            return true;
-
-        for (int i = 0; i < 6; i++) {
-            int offset = i * 4;
-            double distance = frustumPlanes[offset] * x + frustumPlanes[offset + 1] * y + frustumPlanes[offset + 2] * z
-                + frustumPlanes[offset + 3];
-            if (distance < 0)
-                return false;
-        }
-        return true;
-    }
+      // $FF: synthetic method
+      private static FrustumCuller.MovementState[] $values() {
+         return new FrustumCuller.MovementState[]{STANDING, WALKING, FLYING};
+      }
+   }
 }
