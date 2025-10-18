@@ -27,15 +27,18 @@ public class GL15Mixin {
         }
     }
 
-    @Inject(method = {"glBufferData"}, at = { @At("HEAD") }, remap = false)
-    private static void metalrender$onBufferDataSize(int target, long size, int usage, CallbackInfo ci) {}
+  @Inject(method = {"glBufferData"}, at = { @At("HEAD") }, remap = false)
+  private static void metalrender$onBufferDataSize(int target, long size,
+                                                   int usage, CallbackInfo ci) {
+  }
 
-    @Inject(method = {"glDeleteBuffers"}, at = { @At("HEAD") }, remap = false)
-    private static void metalrender$onDeleteBuffers(IntBuffer buffers, CallbackInfo ci) {
-        if (MetalRenderConfig.mirrorUploads() && buffers != null) {
-            while (buffers.hasRemaining()) {
-                GLIntercept.onDeleteBuffer(buffers.get());
-            }
-        }
+  @Inject(method = {"glDeleteBuffers"}, at = { @At("HEAD") }, remap = false)
+  private static void metalrender$onDeleteBuffers(IntBuffer buffers,
+                                                  CallbackInfo ci) {
+    if (MetalRenderConfig.mirrorUploads() && buffers != null) {
+      while (buffers.hasRemaining()) {
+        GLIntercept.onDeleteBuffer(buffers.get());
+      }
     }
+  }
 }
